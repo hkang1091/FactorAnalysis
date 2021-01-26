@@ -1,0 +1,294 @@
+---
+title: "Final Project"
+author: "HanGyuKang"
+date: "4/19/2020"
+output: pdf_document
+---
+#Data Preparation
+```{r}
+origin.dat <- read.table("project.data.csv", header=T, sep=",") #load the data
+
+dat<- origin.dat[,-1] #excluding observation nubmer column
+
+y<-vector()
+for(i in 1:32){
+  y<-rbind(y,dat$y1[i],dat$y2[i])
+}
+blk <-  c(rep(c("1","2"),32))
+
+t.dat <- dat[rep(seq_len(nrow(dat)), each = 2),1:5] #making transfromed data
+t.dat$blk <- blk
+t.dat$y <- y
+
+avg.y<-vector()
+for(i in 1:32){
+  avg.y[i] <- sum(y[2*i-1],y[2*i])/2
+}
+```
+
+#Normality and Constant Variance Checking
+```{r}
+m1 <- lm(y~A*B*C*D*E+blk,data= t.dat)
+pred <- m1$fitted.values
+r <- y-pred
+plot(x=pred,y=r,xlab="Fitted Values",ylab = "Residual",main="Residual vs. Fitted Values")
+theo.q <- seq(-2, 2, by=(4/(64-1)))
+plot(x = theo.q,y=sort(r),xlab="Theoretical Quantiles",ylab="Observed Quantiles", main="Normal Plot of Residuals")
+qqline(sort(r),col = 2,lwd=2,lty=2)
+```
+
+#Box-Cox Transformation
+```{r}
+gm <- exp(mean(log(avg.y)))
+x1 <- dat$A
+x2 <- dat$B
+x3 <- dat$C
+x4 <- dat$D
+x5 <- dat$E
+ssr <- NULL
+lambda.seq<-seq(from=-2,to=2,length.out=32)
+for(lambda in lambda.seq){
+  if(lambda==0){
+    y.0<-gm*log(avg.y)}
+  else{
+    y.0<-(avg.y^lambda-1)/(lambda*gm^{lambda-1})}
+  fit<-lm(y.0~x1+x2+x3+x4+x5)
+  ssr<-c(ssr,sum(fit$resid^2))
+}
+plot(lambda.seq,ssr,type="b",xlab=expression(lambda), ylab=expression(S[lambda]),main="Box-Cox Transformation")
+lambda.table <- cbind(lambda.seq,ssr)
+lambda.table
+lambda.table[which.min(ssr)]
+
+lambd <- 0.40
+m2.1 <- lm(y^(lambd)~A*B*C*D*E+blk,data= t.dat)
+pred.1 <- m2.1$fitted.values
+r.1 <- (t.dat$y)^(lambd)-pred.1
+plot(x=pred,y=r.1,xlab="Fitted Values",ylab = "Residual",main="Residual vs. Fitted Values(Transformation with lambda=0.40)")
+theo.q <- seq(-2, 2, by=(4/(64-1)))
+plot(x = theo.q,y=sort(r.1),xlab="Theoretical Quantiles",ylab="Observed Quantiles", main="Normal Plot of Residuals(Transformation with lambda=0.40)")
+qqline(sort(r.1),col = 2,lwd=2,lty=2)
+
+lambd <- 0.45
+m2.2 <- lm(y^(lambd)~A*B*C*D*E+blk,data= t.dat)
+pred.1 <- m2.2$fitted.values
+r.1 <- (t.dat$y)^(lambd)-pred.1
+plot(x=pred,y=r.1,xlab="Fitted Values",ylab = "Residual",main="Residual vs. Fitted Values(Transformation with lambda=0.45)")
+theo.q <- seq(-2, 2, by=(4/(64-1)))
+plot(x = theo.q,y=sort(r.1),xlab="Theoretical Quantiles",ylab="Observed Quantiles", main="Normal Plot of Residuals(Transformation with lambda=0.45)")
+qqline(sort(r.1),col = 2,lwd=2,lty=2)
+
+lambd <- 0.50
+m2.3 <- lm(y^(lambd)~A*B*C*D*E+blk,data= t.dat)
+pred.1 <- m2.3$fitted.values
+r.1 <- (t.dat$y)^(lambd)-pred.1
+plot(x=pred,y=r.1,xlab="Fitted Values",ylab = "Residual",main="Residual vs. Fitted Values(Transformation with lambda=0.50)")
+theo.q <- seq(-2, 2, by=(4/(64-1)))
+plot(x = theo.q,y=sort(r.1),xlab="Theoretical Quantiles",ylab="Observed Quantiles", main="Normal Plot of Residuals(Transformation with lambda=0.50)")
+qqline(sort(r.1),col = 2,lwd=2,lty=2)
+```
+
+
+#Checking the block effect
+```{r}
+m2 <- lm(y^(0.45)~A*B*C*D*E+blk,data= t.dat)
+a.m2 <-aov(m2)
+m3 <- lm(y^(0.45)~A*B*C*D*E,data= t.dat)
+a.m3 <-aov(m3)
+summary(a.m2)
+summary(a.m3)
+RSS.m2 <- 0.163
+df.m2 <- 31
+RSS.m3 <- 1.288
+df.m3 <- 32
+f.val <- ((RSS.m3-RSS.m2)/(df.m3-df.m2))/((RSS.m3)/(df.m3))
+f.val
+1-pf(f.val,df1=df.m3-df.m2, df2 = df.m3)
+
+library(ggplot2)
+A1 <- 1/16*(sum(dat[dat$A==1,]$y1^(0.45))-sum(dat[dat$A==-1,]$y1^(0.45)))
+B1 <- 1/16*(sum(dat[dat$B==1,]$y1^(0.45))-sum(dat[dat$B==-1,]$y1^(0.45)))
+C1 <- 1/16*(sum(dat[dat$C==1,]$y1^(0.45))-sum(dat[dat$C==-1,]$y1^(0.45)))
+D1 <- 1/16*(sum(dat[dat$D==1,]$y1^(0.45))-sum(dat[dat$D==-1,]$y1^(0.45)))
+E1 <- 1/16*(sum(dat[dat$E==1,]$y1^(0.45))-sum(dat[dat$E==-1,]$y1^(0.45)))
+mean1 <- rbind(A1,B1,C1,D1,E1)
+
+A2 <- 1/16*(sum(dat[dat$A==1,]$y2^(0.45))-sum(dat[dat$A==-1,]$y2^(0.45)))
+B2 <- 1/16*(sum(dat[dat$B==1,]$y2^(0.45))-sum(dat[dat$B==-1,]$y2^(0.45)))
+C2 <- 1/16*(sum(dat[dat$C==1,]$y2^(0.45))-sum(dat[dat$C==-1,]$y2^(0.45)))
+D2 <- 1/16*(sum(dat[dat$D==1,]$y2^(0.45))-sum(dat[dat$D==-1,]$y2^(0.45)))
+E2 <- 1/16*(sum(dat[dat$E==1,]$y2^(0.45))-sum(dat[dat$E==-1,]$y2^(0.45)))
+mean2 <- rbind(A2,B2,C2,D2,E2)
+Block <- c(rep("Block1",5),rep("Block2",5))
+group <- rep(c("A","B","C","D","E"),2)
+
+g.dat <- data.frame(MainEffects=group,Block=Block,Effect=c(mean1,mean2))
+
+ggplot(data=g.dat, aes(x=Block,y=Effect))+geom_line(aes(colour=MainEffects,group=MainEffects))+geom_point(aes(colour=MainEffects),size=2)
+```
+```{r}
+summary(m3)
+coef <- round(m3$coefficients, digits = 4)
+coef
+fitted.y1 <- c()
+fitted.y2 <- c()
+for(i in 1:32){
+  fitted.y1[i] <- a.m3$fitted.values[2*i-1]
+  fitted.y2[i] <- a.m3$fitted.values[2*i]
+}
+fitted.y1 <- c("-",round(fitted.y1,digits=4))
+fitted.y2 <- c("-",round(fitted.y2,digits=4))
+a.m3$fitted.values
+fitted.dat <- data.frame(coefficients=coef,fitted.y1=fitted.y1,fitted.y2=fitted.y2)
+RSE <- c(0.0725)
+fitted.dat <- rbind(fitted.dat,RSE)
+fitted.dat[7,2:3] <- c("-","-")
+fitted.dat[34,2:3] <- c("-", "-")
+row.names(fitted.dat)[34] <- "RSE"
+
+e.A <- 2*(m3$coefficients[2])
+e.B <- 2*(m3$coefficients[3])
+e.C <- 2*(m3$coefficients[4])
+e.D <- 2*(m3$coefficients[5])
+e.E <- 2*(m3$coefficients[6])
+e.AB <- 2*(m3$coefficients[7])
+e.AC <- 2*(m3$coefficients[8])
+e.AD <- 2*(m3$coefficients[10])
+e.AE <- 2*(m3$coefficients[13])
+e.BC <- 2*(m3$coefficients[9])
+e.BD <- 2*(m3$coefficients[11])
+e.BE <- 2*(m3$coefficients[14])
+e.CD <- 2*(m3$coefficients[12])
+e.CE <- 2*(m3$coefficients[15])
+e.DE <- 2*(m3$coefficients[16])
+e.ABC <- 2*(m3$coefficients[17])
+e.ABD <- 2*(m3$coefficients[18])
+e.ABE <- 2*(m3$coefficients[21])
+e.ACD <- 2*(m3$coefficients[19])
+e.ACE <- 2*(m3$coefficients[22])
+e.ADE <- 2*(m3$coefficients[24])
+e.BCD <- 2*(m3$coefficients[20])
+e.BCE <- 2*(m3$coefficients[23])
+e.BDE <- 2*(m3$coefficients[25])
+e.CDE <- 2*(m3$coefficients[26])
+e.ABCD <- 2*(m3$coefficients[27])
+e.ABCE <- 2*(m3$coefficients[28])
+e.ABDE <- 2*(m3$coefficients[29])
+e.ACDE <- 2*(m3$coefficients[30])
+e.BCDE <- 2*(m3$coefficients[31])
+e.ABCDE <- 2*(m3$coefficients[32])
+
+effects <- rbind(e.A,e.B,e.C,e.D,e.E,e.AB,e.AC, e.AD,e.AE, e.BC, e.BD, e.BE,e.CD, e.CE,e.DE,e.ABC,e.ABD,e.ABE,e.ACD,e.ACE,e.ADE,e.BCD,e.BCE,e.BDE,e.CDE,e.ABCD,e.ABCE, e.ABDE,e.ACDE,e.BCDE,e.ABCDE)
+effects
+```
+
+#Using Interactions to estimate sigma square
+```{r}
+effectnames  <- names(effects)
+
+sg1 <- sqrt(e.ABCDE^2) # If only 5 fi is assumed negligible
+t1 <- qt(p=1-(0.10/2/30),df=1,lower.tail=T)
+effectnames[which(abs(effects)>=sg1*t1)]
+
+sg2 <- sqrt(e.ABCD^2+e.ABCE^2+e.ABDE^2+e.ACDE^2+e.BCDE^2+e.ABCDE^2)/6# If 4 fi and 5 fi are assumed negligible
+t2 <- qt(p=1-(0.10/2/25),df=6,lower.tail=T)
+effectnames[which(abs(effects)>=sg2*t2)]
+
+sg3 <- sqrt(e.ABC^2+e.ABD^2+e.ABE^2+e.ACD^2+e.ACE^2+e.ADE^2+e.BCD^2+e.BCE^2+e.BDE^2+e.CDE^2+e.ABCD^2+e.ABCE^2+e.ABDE^2+e.ACDE^2+e.BCDE^2+e.ABCDE^2)/16# If 3 fi, 4fi and 5fi are assumed negligible
+t3 <- qt(p=1-(0.10/2/15),df=16,lower.tail=T)
+effectnames[which(abs(effects)>=sg3*t3)]
+
+sg4 <- sqrt(e.AB^2+e.AC^2+e.AD^2+e.AE^2+e.BC^2+e.BD^2+e.BE^2+e.CD^2+e.CE^2+e.DE^2+e.ABC^2+e.ABD^2+e.ABE^2+e.ACD^2+e.ACE^2+e.ADE^2+e.BCD^2+e.BCE^2+e.BDE^2+e.CDE^2+e.ABCD^2+e.ABCE^2+e.ABDE^2+e.ACDE^2+e.BCDE^2+e.ABCDE^2)/26# If 2fi, 3 fi, 4fi and 5fi are assumed negligible
+t4 <- qt(p=1-(0.10/2/5),df=26,lower.tail=T)
+effectnames[which(abs(effects)>=sg4*t4)]
+```
+
+#Improved Daniel's Method
+```{r}
+par(mfrow=c(8,4),pty="s", mar=rep(2,4))
+i0<-0
+j0<-0
+k0<-0
+r<-0
+d<-Inf
+effects<-NULL
+for(i in c(1,-1)){
+  for(j in c(1,-1)){
+    for(k in c(1,-1)){
+      for(l in c(1,-1)){
+        for(m in c(1,-1)){
+      new.effects<-c(e.A*i,e.B*j,e.C*k,e.D*l,e.E*m,e.AB*i*j,e.AC*i*k,e.AD*i*l,e.AE*i*m,e.BC*j*k,e.BD*j*l,e.BE*j*m,e.CD*k*l,e.CE*k*m,e.DE*l*m,e.ABC*i*j*k,e.ABD*i*j*l,e.ABE*i*j*m,e.ACD*i*k*l,e.ACE*i*k*m,e.ADE*i*l*m,e.BCD*j*k*l,e.BCE*j*k*m,e.BDE*j*l*m,e.CDE*k*l*m,e.ABCD*i*j*k*l,e.ABCE*i*j*k*m,e.ABDE*i*j*l*m,e.ACDE*i*k*l*m,e.BCDE*j*k*l*m,e.ABCDE*i*j*k*l*m)
+      qq<-qqnorm(new.effects,main=paste0(i,",",j,",",k,",",l,",",m))
+      new.r<-cor(qq$x,qq$y)
+      m<-median(new.effects)
+      if(abs(m)<d|(abs(m)==d&new.r>r)){
+        d<-abs(m)
+        r<-new.r
+        i0<-i
+        j0<-j
+        k0<-k
+        effects<-new.effects } } } } } }
+```
+
+#Choosed plot by improved Daniel's method
+```{r}
+i<--1
+j<--1
+k<-1
+l<-1
+m<--1
+d.effects<-c(e.A*i,e.B*j,e.C*k,e.D*l,e.E*m,e.AB*i*j,e.AC*i*k,e.AD*i*l,e.AE*i*m,e.BC*j*k,e.BD*j*l,e.BE*j*m,e.CD*k*l,e.CE*k*m,e.DE*l*m,e.ABC*i*j*k,e.ABD*i*j*l,e.ABE*i*j*m,e.ACD*i*k*l,e.ACE*i*k*m,e.ADE*i*l*m,e.BCD*j*k*l,e.BCE*j*k*m,e.BDE*j*l*m,e.CDE*k*l*m,e.ABCD*i*j*k*l,e.ABCE*i*j*k*m,e.ABDE*i*j*l*m,e.ACDE*i*k*l*m,e.BCDE*j*k*l*m,e.ABCDE*i*j*k*l*m)
+qqnorm(d.effects,main=paste0(i,",",j,",",k,",",l,",",m))
+text(d.effects, labels = names(d.effects), cex=0.9, font=2)
+qqline(d.effects,col = 2,lwd=2,lty=2)
+
+sort(d.effects)
+```
+
+#Improved Length's Method(Dong's Method)
+```{r}
+med <- median(abs(effects))
+med
+s0 <- 1.5*med
+s0
+m.1 <- length(which(abs(effects)<=2.5*s0))
+m.1
+theta1 <- effects[which(abs(effects)<=2.5*s0)]
+theta1
+s1.sq <- sum(theta1^2)/m.1
+s1 <- sqrt(s1.sq)
+s1
+
+m.2 <- length(which(abs(effects)<=2.5*s1))
+m.2
+theta2 <- effects[which(abs(effects)<=2.5*s1)]
+theta2
+s2.sq <- sum(theta2^2)/m.2
+s2 <- sqrt(s2.sq)
+s2
+
+g.m <- 0.5*(1-(1-0.10)^(1/length(effects)))
+g.m
+
+t5 <- qt(p=1-g.m,df=m.2,lower.tail = T)
+t5*s2
+effectnames  <- names(effects)
+effectnames[which(abs(effects)>=t5*s2)]
+```
+#Studentized maximum modulus
+```{r}
+k <- 5
+r <- 2
+N <- 64
+g <- 2^k -1
+v <- (2^k-1)*(r-1)
+sigma <- 0.0725
+M <- 3.15
+t6 <- qt(p=1-(0.10/2/g),df=v,lower.tail = T)
+tres1 <- (2*sigma*M)/(sqrt(N))
+tres1
+effectnames[which(abs(effects)>=tres1)]
+
+tres2 <- (2*sigma*t6)/(sqrt(N))
+effectnames[which(abs(effects)>=tres2)]
+```
